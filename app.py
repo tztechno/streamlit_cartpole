@@ -14,7 +14,7 @@ import matplotlib
 matplotlib.use('Agg')  # バックエンドの設定
 
 st.set_page_config(page_title="CartPole DQN", layout="wide")
-st.title("CartPole DQN with Reinforcement Learning")
+st.title("CartPole DQN")
 
 # Training parameters in sidebar
 st.sidebar.header("Training Parameters")
