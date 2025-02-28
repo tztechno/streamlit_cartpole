@@ -1,11 +1,10 @@
 streamlit 
-gymnasium 
 torch 
 numpy 
 matplotlib 
 imageio 
 pillow
+gymnasium 
 gymnasium[classic-control]
 pygame
-
 
