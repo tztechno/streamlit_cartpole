@@ -11,6 +11,11 @@ import matplotlib.pyplot as plt
 import time
 from matplotlib import animation
 import matplotlib
+import os
+from PIL import Image
+import io
+
+
 matplotlib.use('Agg')  # バックエンドの設定
 
 st.set_page_config(page_title="CartPole DQN", layout="wide")
@@ -163,13 +168,16 @@ def train_agent():
     # Return the trained policy network and history data
     return policy_net, rewards_history, epsilon_history, loss_history
 
-# CartPoleを可視化するためのヘルパー関数
-def visualize_cartpole(policy_net, epsilon=0.05, save_path="cartpole_episode"):
+
+
+def visualize_cartpole(policy_net, epsilon=0.05):
+    env = gym.make("CartPole-v1", render_mode="rgb_array")
     state, _ = env.reset()
     frames = []
 
     for t in range(500):
-        frames.append(env.render())
+        frame = env.render()  # mode="rgb_array" で NumPy 配列として取得
+        frames.append(frame)
 
         if np.random.rand() < epsilon:
             action = env.action_space.sample()
@@ -184,25 +192,28 @@ def visualize_cartpole(policy_net, epsilon=0.05, save_path="cartpole_episode"):
             break
 
     env.close()
-    
-    # フレームを個別の画像として保存
-    os.makedirs(save_path, exist_ok=True)
-    for i, frame in enumerate(frames):
-        img = Image.fromarray(frame)
-        img.save(f"{save_path}/frame_{i:03d}.png")
-    
-    # PILを使ってGIFを生成
+
+    # PIL Image に変換
     images = [Image.fromarray(frame) for frame in frames]
+
+    # メモリ上に GIF を保存
+    gif_buffer = io.BytesIO()
     images[0].save(
-        f"{save_path}.gif",
+        gif_buffer,
+        format="GIF",
         save_all=True,
         append_images=images[1:],
-        duration=50,  # ミリ秒単位でフレーム間の時間
-        loop=0  # 0は無限ループ
+        duration=50,  # ミリ秒
+        loop=0
     )
-    
-    print(f"GIF saved to {save_path}.gif")
-    return frames
+    gif_buffer.seek(0)
+
+    # Streamlit で GIF を表示
+    st.image(gif_buffer, caption="CartPole Animation", use_column_width=True)
+
+
+
+
     
 # Agent testing function with visualization
 def test_agent(policy_net, num_test_episodes=3):
