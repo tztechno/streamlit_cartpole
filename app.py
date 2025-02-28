@@ -207,8 +207,12 @@ def visualize_cartpole(policy_net, epsilon=0.05):
     )
     gif_buffer.seek(0)
 
-    # Streamlit で GIF を表示
-    st.image(gif_buffer, caption="CartPole Animation", use_column_width=True)
+    # Streamlit で GIF を HTML に埋め込む
+    gif_data = gif_buffer.getvalue()
+    gif_base64 = f"data:image/gif;base64,{gif_data.hex()}"
+
+    html_code = f'<img src="{gif_base64}" width="600"/>'
+    st.markdown(html_code, unsafe_allow_html=True)
 
 
 
