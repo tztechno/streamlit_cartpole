@@ -164,54 +164,46 @@ def train_agent():
     return policy_net, rewards_history, epsilon_history, loss_history
 
 # CartPoleを可視化するためのヘルパー関数
-def visualize_cartpole(states):
-    """
-    与えられたCartPoleの状態履歴から可視化用のアニメーションを作成します
-    """
-    # 状態の解凍
-    cart_positions = [state[0] for state in states]
-    pole_angles = [state[2] for state in states]
-    
-    # アニメーション作成
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.set_xlim(-3, 3)
-    ax.set_ylim(-0.5, 1.5)
-    ax.set_title('CartPole Animation')
-    ax.set_xlabel('Position')
-    ax.grid(True)
-    
-    # カートとポールの描画用オブジェクト
-    cart_width = 0.4
-    cart_height = 0.2
-    pole_length = 1.0
-    
-    # カート（長方形）の初期位置
-    cart = plt.Rectangle((cart_positions[0] - cart_width/2, -cart_height/2), 
-                          cart_width, cart_height, fill=True, color='blue', ec='black')
-    ax.add_patch(cart)
-    
-    # ポール（線分）の初期位置
-    pole_x_end = cart_positions[0] + pole_length * np.sin(pole_angles[0])
-    pole_y_end = pole_length * np.cos(pole_angles[0])
-    pole, = ax.plot([cart_positions[0], pole_x_end], [0, pole_y_end], 'r-', lw=3)
-    
-    def animate(i):
-        # カートの位置更新
-        cart.set_x(cart_positions[i] - cart_width/2)
-        
-        # ポールの位置更新
-        pole_x_end = cart_positions[i] + pole_length * np.sin(pole_angles[i])
-        pole_y_end = pole_length * np.cos(pole_angles[i])
-        pole.set_data([cart_positions[i], pole_x_end], [0, pole_y_end])
-        
-        return cart, pole
-    
-    # アニメーション作成
-    anim = animation.FuncAnimation(fig, animate, frames=len(states), 
-                                   interval=50, blit=True)
-    
-    return anim
+def visualize_cartpole(policy_net, epsilon=0.05, save_path="cartpole_episode"):
+    state, _ = env.reset()
+    frames = []
 
+    for t in range(500):
+        frames.append(env.render())
+
+        if np.random.rand() < epsilon:
+            action = env.action_space.sample()
+        else:
+            with torch.no_grad():
+                action = policy_net(torch.FloatTensor(state)).argmax().item()
+
+        next_state, reward, terminated, truncated, _ = env.step(action)
+        state = next_state
+
+        if terminated or truncated:
+            break
+
+    env.close()
+    
+    # フレームを個別の画像として保存
+    os.makedirs(save_path, exist_ok=True)
+    for i, frame in enumerate(frames):
+        img = Image.fromarray(frame)
+        img.save(f"{save_path}/frame_{i:03d}.png")
+    
+    # PILを使ってGIFを生成
+    images = [Image.fromarray(frame) for frame in frames]
+    images[0].save(
+        f"{save_path}.gif",
+        save_all=True,
+        append_images=images[1:],
+        duration=50,  # ミリ秒単位でフレーム間の時間
+        loop=0  # 0は無限ループ
+    )
+    
+    print(f"GIF saved to {save_path}.gif")
+    return frames
+    
 # Agent testing function with visualization
 def test_agent(policy_net, num_test_episodes=3):
     st.subheader("Agent Performance")
