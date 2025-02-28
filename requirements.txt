@@ -1,0 +1,6 @@
+streamlit 
+gymnasium 
+torch numpy 
+matplotlib 
+imageio 
+pillow
