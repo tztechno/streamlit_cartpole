@@ -1,3 +1,4 @@
+
 import streamlit as st
 import gymnasium as gym
 import numpy as np
@@ -7,11 +8,11 @@ import torch.optim as optim
 import random
 from collections import deque
 import matplotlib.pyplot as plt
-import imageio.v2 as imageio
-import os
-import tempfile
-from PIL import Image
+import matplotlib.animation as animation
+from matplotlib import style
 import time
+import io
+from PIL import Image
 
 st.set_page_config(page_title="CartPole DQN", layout="wide")
 st.title("CartPole DQN with Reinforcement Learning")
@@ -55,6 +56,42 @@ class ReplayMemory:
     
     def __len__(self):
         return len(self.memory)
+
+# Custom visualization of CartPole state
+def draw_cart_pole(state, fig, ax):
+    cart_x, cart_y = state[0], 0
+    pole_length = 0.5
+    theta = state[2]
+    
+    # Cart dimensions
+    cart_width = 0.2
+    cart_height = 0.1
+    
+    # Clear the axis
+    ax.clear()
+    
+    # Draw the track
+    ax.plot([-2.4, 2.4], [0, 0], 'k-', lw=1)
+    
+    # Draw the cart
+    cart_left = cart_x - cart_width/2
+    cart_right = cart_x + cart_width/2
+    cart_bottom = cart_y - cart_height/2
+    cart_top = cart_y + cart_height/2
+    ax.add_patch(plt.Rectangle((cart_left, cart_bottom), cart_width, cart_height, fc='blue'))
+    
+    # Draw the pole
+    pole_x = cart_x + pole_length * np.sin(theta)
+    pole_y = cart_y + pole_length * np.cos(theta)
+    ax.plot([cart_x, pole_x], [cart_y, pole_y], 'r-', lw=3)
+    
+    # Set axis limits and labels
+    ax.set_xlim(-2.5, 2.5)
+    ax.set_ylim(-0.5, 1.0)
+    ax.set_aspect('equal')
+    ax.set_title('CartPole Simulation')
+    ax.set_xticks([])
+    ax.set_yticks([])
 
 # Training function
 def train_agent():
@@ -190,28 +227,26 @@ def train_agent():
     
     env.close()
     
-    # Return the trained policy network
-    return policy_net
+    # Return the trained policy network and history
+    return policy_net, rewards_history
 
-# Visualization function
+# Custom visualization function using matplotlib (no reliance on env.render())
 def visualize_trained_agent(policy_net):
     st.header("Trained Agent Performance")
-    
-    # Create environment for visualization
-    env = gym.make("CartPole-v1", render_mode="rgb_array")
-    state, _ = env.reset()
-    frames = []
-    
-    # Status text
     status = st.empty()
     status.text("Running trained agent...")
+    
+    # Create environment for running trained agent
+    env = gym.make("CartPole-v1")
+    state, _ = env.reset()
+    
+    # Store state history
+    state_history = [state]
+    reward_history = []
     
     # Run episode with trained policy
     total_reward = 0
     for t in range(500):  # Max episode length
-        # Render and capture frame
-        frames.append(env.render())
-        
         # Use policy with a small exploration rate
         if random.random() < 0.05:  # 5% random exploration
             action = env.action_space.sample()
@@ -222,27 +257,58 @@ def visualize_trained_agent(policy_net):
         # Take action
         next_state, reward, terminated, truncated, _ = env.step(action)
         state = next_state
+        
+        # Save state and reward
+        state_history.append(state)
         total_reward += reward
+        reward_history.append(total_reward)
         
         if terminated or truncated:
             break
     
     env.close()
     
-    # Save animation as GIF
-    with tempfile.NamedTemporaryFile(suffix='.gif', delete=False) as tmp_file:
-        gif_path = tmp_file.name
-        imageio.mimsave(gif_path, frames, fps=30)
+    # Create animation using matplotlib
+    status.text(f"Creating animation... Episode completed with total reward: {total_reward}")
+    
+    # Create animation
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8), gridspec_kw={'height_ratios': [3, 1]})
+    plt.tight_layout()
+    
+    # Function to update the animation
+    def update(frame):
+        # Draw cart and pole
+        draw_cart_pole(state_history[frame], fig, ax1)
+        
+        # Update reward plot
+        if frame > 0:
+            ax2.clear()
+            ax2.plot(reward_history[:frame], 'g-')
+            ax2.set_xlim(0, len(state_history))
+            ax2.set_ylim(0, total_reward + 5)
+            ax2.set_xlabel('Steps')
+            ax2.set_ylabel('Cumulative Reward')
+            ax2.set_title('Reward Over Time')
+    
+    # Create animation
+    frames = min(100, len(state_history))  # Limit to 100 frames to avoid memory issues
+    step = max(1, len(state_history) // frames)
+    selected_frames = list(range(0, len(state_history), step))
+    
+    ani = animation.FuncAnimation(
+        fig, update, frames=selected_frames, 
+        interval=50, blit=False)
+    
+    # Save animation to buffer
+    buf = io.BytesIO()
+    ani.save(buf, writer='pillow', fps=15)
+    buf.seek(0)
     
     # Display animation
-    status.text(f"Episode completed with total reward: {total_reward}")
+    st.image(buf, caption=f"CartPole Agent (Total Reward: {total_reward})", width=600)
     
-    # Show the GIF with proper format and sizing
-    with open(gif_path, 'rb') as file:
-        st.image(file.read(), caption="Trained CartPole Agent", width=700)
-    
-    # Clean up temporary file
-    os.unlink(gif_path)
+    # Display final stats
+    st.success(f"Agent completed with reward: {total_reward}")
     
     return total_reward
 
@@ -263,10 +329,56 @@ the center.
 if st.button("Train Agent"):
     with st.spinner("Training DQN agent... This might take a few minutes."):
         start_time = time.time()
-        policy_net = train_agent()
+        policy_net, rewards_history = train_agent()
         training_time = time.time() - start_time
         st.success(f"Training completed in {training_time:.1f} seconds!")
+        
+        # Plot final reward curve
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(rewards_history)
+        ax.set_title('Training Rewards')
+        ax.set_xlabel('Episode')
+        ax.set_ylabel('Total Reward')
+        ax.grid(True)
+        st.pyplot(fig)
     
-    # Visualize the trained agent
+    # Visualize the trained agent with custom visualization
     with st.spinner("Running trained agent..."):
-        reward = visualize_trained_agent(policy_net)
+        try:
+            reward = visualize_trained_agent(policy_net)
+        except Exception as e:
+            st.error(f"Error visualizing agent: {e}")
+            st.info("Showing simplified performance statistics instead.")
+            
+            # Display text-based summary
+            st.subheader("Agent Performance Summary")
+            
+            # Run a few test episodes
+            env = gym.make("CartPole-v1")
+            test_rewards = []
+            
+            for i in range(5):
+                state, _ = env.reset()
+                episode_reward = 0
+                
+                for t in range(500):
+                    # Use policy
+                    with torch.no_grad():
+                        action = policy_net(torch.FloatTensor(state)).argmax().item()
+                    
+                    # Take action
+                    next_state, reward, terminated, truncated, _ = env.step(action)
+                    state = next_state
+                    episode_reward += reward
+                    
+                    if terminated or truncated:
+                        break
+                
+                test_rewards.append(episode_reward)
+            
+            env.close()
+            
+            # Display results
+            avg_reward = sum(test_rewards) / len(test_rewards)
+            st.metric("Average Reward", f"{avg_reward:.1f}")
+            st.write(f"Test Episode Rewards: {test_rewards}")
