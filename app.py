@@ -9,8 +9,9 @@ import random
 from collections import deque
 import matplotlib.pyplot as plt
 import time
-from PIL import Image
-import io
+from matplotlib import animation
+import matplotlib
+matplotlib.use('Agg')  # バックエンドの設定
 
 st.set_page_config(page_title="CartPole DQN", layout="wide")
 st.title("CartPole DQN with Reinforcement Learning")
@@ -27,12 +28,6 @@ memory_size = st.sidebar.slider("Memory Size", min_value=1000, max_value=100000,
 hidden_size = st.sidebar.slider("Hidden Layer Size", min_value=16, max_value=128, value=24, step=8)
 target_update = st.sidebar.slider("Target Network Update (episodes)", min_value=1, max_value=50, value=10, step=1)
 num_episodes = st.sidebar.slider("Number of Episodes", min_value=100, max_value=2000, value=500, step=100)
-
-# アニメーションのパラメータ
-st.sidebar.header("Animation Parameters")
-show_animation = st.sidebar.checkbox("Show Animation", value=True)
-fps = st.sidebar.slider("Animation FPS", min_value=10, max_value=60, value=30, step=5)
-animation_episodes = st.sidebar.slider("Number of Episodes to Animate", min_value=1, max_value=5, value=1, step=1)
 
 # Network architecture
 class DQN(nn.Module):
@@ -168,28 +163,78 @@ def train_agent():
     # Return the trained policy network and history data
     return policy_net, rewards_history, epsilon_history, loss_history
 
-# Agent testing function with animation
-def test_agent(policy_net, num_test_episodes=10):
+# CartPoleを可視化するためのヘルパー関数
+def visualize_cartpole(states):
+    """
+    与えられたCartPoleの状態履歴から可視化用のアニメーションを作成します
+    """
+    # 状態の解凍
+    cart_positions = [state[0] for state in states]
+    pole_angles = [state[2] for state in states]
+    
+    # アニメーション作成
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-0.5, 1.5)
+    ax.set_title('CartPole Animation')
+    ax.set_xlabel('Position')
+    ax.grid(True)
+    
+    # カートとポールの描画用オブジェクト
+    cart_width = 0.4
+    cart_height = 0.2
+    pole_length = 1.0
+    
+    # カート（長方形）の初期位置
+    cart = plt.Rectangle((cart_positions[0] - cart_width/2, -cart_height/2), 
+                          cart_width, cart_height, fill=True, color='blue', ec='black')
+    ax.add_patch(cart)
+    
+    # ポール（線分）の初期位置
+    pole_x_end = cart_positions[0] + pole_length * np.sin(pole_angles[0])
+    pole_y_end = pole_length * np.cos(pole_angles[0])
+    pole, = ax.plot([cart_positions[0], pole_x_end], [0, pole_y_end], 'r-', lw=3)
+    
+    def animate(i):
+        # カートの位置更新
+        cart.set_x(cart_positions[i] - cart_width/2)
+        
+        # ポールの位置更新
+        pole_x_end = cart_positions[i] + pole_length * np.sin(pole_angles[i])
+        pole_y_end = pole_length * np.cos(pole_angles[i])
+        pole.set_data([cart_positions[i], pole_x_end], [0, pole_y_end])
+        
+        return cart, pole
+    
+    # アニメーション作成
+    anim = animation.FuncAnimation(fig, animate, frames=len(states), 
+                                   interval=50, blit=True)
+    
+    return anim
+
+# Agent testing function with visualization
+def test_agent(policy_net, num_test_episodes=3):
     st.subheader("Agent Performance")
     
+    # Replace the static image with animation
+    animation_placeholder = st.empty()
+    
     # Create environment for testing
-    env = gym.make("CartPole-v1", render_mode="rgb_array")
+    env = gym.make("CartPole-v1")
     
     # Testing the agent
     test_rewards = []
     test_steps = []
+    best_states = []  # 最長エピソードの状態を保存
+    best_reward = 0
     
     for i in range(num_test_episodes):
         state, _ = env.reset()
         episode_reward = 0
         steps = 0
-        frames = []  # フレームを保存するリスト
+        states = [state]  # 状態の履歴
         
         for t in range(500):  # Max episode length
-            # レンダリングしてフレームを保存（アニメーション用）
-            if show_animation and i < animation_episodes:
-                frames.append(env.render())
-            
             # Use policy
             with torch.no_grad():
                 action = policy_net(torch.FloatTensor(state)).argmax().item()
@@ -197,6 +242,8 @@ def test_agent(policy_net, num_test_episodes=10):
             # Take action
             next_state, reward, terminated, truncated, _ = env.step(action)
             state = next_state
+            states.append(state)  # 状態を記録
+            
             episode_reward += reward
             steps += 1
             
@@ -206,32 +253,21 @@ def test_agent(policy_net, num_test_episodes=10):
         test_rewards.append(episode_reward)
         test_steps.append(steps)
         
-        # アニメーションを表示
-        if show_animation and i < animation_episodes:
-            st.write(f"Episode {i+1} Animation (Reward: {episode_reward}, Steps: {steps}):")
-            
-            # アニメーションプレイヤーを表示するプレースホルダ
-            animation_placeholder = st.empty()
-            
-            # フレームレートを調整するための時間間隔
-            frame_interval = 1.0 / fps
-            
-            # フレームごとに画像を表示
-            for frame_idx, frame in enumerate(frames):
-                # PIL Imageに変換
-                img = Image.fromarray(frame)
-                
-                # バッファに画像を保存
-                buf = io.BytesIO()
-                img.save(buf, format="PNG")
-                
-                # プレースホルダを更新して新しいフレームを表示
-                animation_placeholder.image(buf.getvalue(), caption=f"Step {frame_idx+1}/{len(frames)}")
-                
-                # フレームレートを調整
-                time.sleep(frame_interval)
+        # 最長エピソードを保存
+        if episode_reward > best_reward:
+            best_reward = episode_reward
+            best_states = states
     
     env.close()
+    
+    # 最長エピソードのアニメーションを作成
+    if best_states:
+        anim = visualize_cartpole(best_states)
+        
+        # アニメーションをHTML5ビデオに変換
+        html = anim.to_html5_video()
+        animation_placeholder.markdown(html, unsafe_allow_html=True)
+        plt.close()  # メモリリーク防止のためにfigureをクローズ
     
     # Display test results
     avg_reward = sum(test_rewards) / len(test_rewards)
@@ -253,77 +289,6 @@ def test_agent(policy_net, num_test_episodes=10):
     
     return avg_reward
 
-# Alternative animation using GIF (optional function)
-def create_animation_gif(policy_net):
-    """エージェントの実行をGIFとして保存して表示する"""
-    import imageio
-    
-    st.subheader("CartPole Animation (GIF)")
-    
-    # GIF用の環境作成
-    env = gym.make("CartPole-v1", render_mode="rgb_array")
-    frames = []
-    
-    # 1エピソード実行してフレームを収集
-    state, _ = env.reset()
-    done = False
-    
-    # プログレスバーを表示
-    progress_text = st.empty()
-    progress_text.text("Creating animation...")
-    
-    # Run the episode
-    step = 0
-    while not done and step < 500:
-        # Render
-        frames.append(env.render())
-        
-        # Select action using policy
-        with torch.no_grad():
-            action = policy_net(torch.FloatTensor(state)).argmax().item()
-        
-        # Step environment
-        state, _, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
-        step += 1
-    
-    env.close()
-    
-    # GIFを一時ファイルに保存
-    gif_path = "cartpole_animation.gif"
-    imageio.mimsave(gif_path, frames, fps=fps)
-    
-    # GIFを表示
-    progress_text.text(f"Animation created! Steps: {step}")
-    st.image(gif_path, caption="CartPole Agent in Action")
-
-# Custom visualization of CartPole state
-def draw_cart_pole_state():
-    # Create a static visualization of the CartPole
-    fig, ax = plt.subplots(figsize=(8, 4))
-    
-    # Draw the track
-    ax.plot([-2.4, 2.4], [0, 0], 'k-', lw=1)
-    
-    # Draw the cart
-    cart_x = 0
-    cart_width = 0.2
-    cart_height = 0.1
-    cart_bottom = -cart_height/2
-    ax.add_patch(plt.Rectangle((cart_x - cart_width/2, cart_bottom), cart_width, cart_height, fc='blue'))
-    
-    # Draw the pole (upright position)
-    pole_length = 0.5
-    ax.plot([cart_x, cart_x], [0, pole_length], 'r-', lw=3)
-    
-    # Set axis limits and labels
-    ax.set_xlim(-2.5, 2.5)
-    ax.set_ylim(-0.5, 1.0)
-    ax.set_aspect('equal')
-    ax.set_title('CartPole Environment')
-    
-    return fig
-
 # Main script
 st.markdown("""
 This app trains a Deep Q-Network (DQN) agent to solve the CartPole environment 
@@ -338,8 +303,8 @@ more than 15 degrees from vertical, or the cart moves more than 2.4 units from
 the center.
 """)
 
-# Display a static image of CartPole
-st.pyplot(draw_cart_pole_state())
+# 静止画を表示せずにプレースホルダーを配置
+animation_placeholder = st.empty()
 
 if st.button("Train Agent"):
     with st.spinner("Training DQN agent... This might take a few minutes."):
@@ -378,11 +343,6 @@ if st.button("Train Agent"):
         # Test the trained agent
         st.subheader("Testing Trained Agent")
         test_agent(policy_net)
-        
-        # Show GIF animation option
-        if st.button("Create GIF Animation"):
-            create_animation_gif(policy_net)
-
 
 
 
