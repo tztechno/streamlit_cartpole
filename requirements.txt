@@ -5,3 +5,4 @@ numpy
 matplotlib 
 imageio 
 pillow
+ffmpeg-python
