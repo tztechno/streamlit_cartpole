@@ -169,7 +169,6 @@ def train_agent():
     return policy_net, rewards_history, epsilon_history, loss_history
 
 
-
 def visualize_cartpole(policy_net, epsilon=0.05):
     env = gym.make("CartPole-v1", render_mode="rgb_array")
     state, _ = env.reset()
@@ -210,7 +209,6 @@ def visualize_cartpole(policy_net, epsilon=0.05):
 
     # Streamlit で GIF を表示
     st.image(gif_buffer, caption="CartPole Animation", use_column_width=True)
-
 
 
 
