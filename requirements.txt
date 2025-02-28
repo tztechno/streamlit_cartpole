@@ -1,6 +1,7 @@
 streamlit 
 gymnasium 
-torch numpy 
+torch 
+numpy 
 matplotlib 
 imageio 
 pillow
