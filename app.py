@@ -19,7 +19,7 @@ import io
 matplotlib.use('Agg')  # バックエンドの設定
 
 st.set_page_config(page_title="CartPole DQN", layout="wide")
-st.title("CartPole DQN")
+st.title("CartPole DQN Training")
 
 # Training parameters in sidebar
 st.sidebar.header("Training Parameters")
