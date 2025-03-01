@@ -258,7 +258,8 @@ def test_agent(policy_net, num_test_episodes=3):
     with col1:
         st.metric("Average Reward", f"{avg_reward:.1f}")
     with col2:
-        st.metric("Average Steps", f"{avg_steps:.1f}")
+        # CartPoleでは報酬 = バランスを保った時間ステップ数なので、別の指標を表示
+        st.metric("Max Episode Length", f"{max(test_steps)}")
     
     # テスト結果を表にして表示
     results_df = {"Episode": list(range(1, num_test_episodes+1)),
@@ -269,6 +270,7 @@ def test_agent(policy_net, num_test_episodes=3):
     st.dataframe(results_df)
     
     return avg_reward
+
 
     
 
