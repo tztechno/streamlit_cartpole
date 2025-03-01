@@ -208,11 +208,14 @@ def visualize_cartpole(policy_net, epsilon=0.05):
     
     return gif_buffer
 
+
 def test_agent(policy_net, num_test_episodes=3):
     st.subheader("Agent Performance")
     
-    # プレースホルダー設置
-    animation_placeholder = st.empty()
+    # まずアニメーションを生成して表示
+    with st.spinner("Generating animation..."):
+        gif_buffer = visualize_cartpole(policy_net)
+        st.image(gif_buffer, width=600, caption="CartPole Animation")
     
     # テスト用環境作成
     env = gym.make("CartPole-v1")
@@ -246,11 +249,6 @@ def test_agent(policy_net, num_test_episodes=3):
     
     env.close()
     
-    # アニメーションを生成して表示
-    with st.spinner("Generating animation..."):
-        gif_buffer = visualize_cartpole(policy_net)
-        animation_placeholder.image(gif_buffer, width=600, caption="CartPole Animation")
-    
     # テスト結果を表示
     avg_reward = sum(test_rewards) / len(test_rewards)
     avg_steps = sum(test_steps) / len(test_steps)
@@ -270,8 +268,6 @@ def test_agent(policy_net, num_test_episodes=3):
     st.dataframe(results_df)
     
     return avg_reward
-
-
 
     
 
