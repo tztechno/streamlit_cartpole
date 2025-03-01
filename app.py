@@ -61,7 +61,6 @@ class ReplayMemory:
     def __len__(self):
         return len(self.memory)
 
-# Training function
 def train_agent():
     # Progress info
     progress_bar = st.progress(0)
@@ -168,47 +167,6 @@ def train_agent():
     # Return the trained policy network and history data
     return policy_net, rewards_history, epsilon_history, loss_history
 
-def visualize_cartpole(policy_net, epsilon=0.05):
-    env = gym.make("CartPole-v1", render_mode="rgb_array")
-    state, _ = env.reset()
-    frames = []
-
-    for t in range(500):
-        frame = env.render()  # render_mode="rgb_array" でNumPy配列として取得
-        frames.append(frame)
-
-        if np.random.rand() < epsilon:
-            action = env.action_space.sample()
-        else:
-            with torch.no_grad():
-                action = policy_net(torch.FloatTensor(state)).argmax().item()
-
-        next_state, reward, terminated, truncated, _ = env.step(action)
-        state = next_state
-
-        if terminated or truncated:
-            break
-
-    env.close()
-
-    # PIL Imageに変換
-    images = [Image.fromarray(frame) for frame in frames]
-
-    # メモリ上にGIFを保存
-    gif_buffer = io.BytesIO()
-    images[0].save(
-        gif_buffer,
-        format="GIF",
-        save_all=True,
-        append_images=images[1:],
-        duration=50,  # ミリ秒
-        loop=0
-    )
-    gif_buffer.seek(0)
-    
-    return gif_buffer
-
-
 def test_agent(policy_net, num_test_episodes=3):
     st.subheader("Agent Performance")
     
@@ -274,13 +232,10 @@ def test_agent(policy_net, num_test_episodes=3):
 ## Main script
 st.markdown("""
 This app trains a Deep Q-Network (DQN) agent to solve the CartPole environment 
-from OpenAI Gymnasium. Adjust the parameters in the sidebar to see how they 
-affect the training process.
+from OpenAI Gymnasium. 
 
-### Task Description
 In CartPole, a pole is attached to a cart moving along a track. The goal is to 
-balance the pole by applying forces to the cart. A reward of +1 is provided for 
-every timestep that the pole remains upright. The episode ends when the pole is 
+balance the pole by applying forces to the cart. The episode ends when the pole is 
 more than 15 degrees from vertical, or the cart moves more than 2.4 units from 
 the center.
 """)
@@ -288,6 +243,7 @@ the center.
 # 静止画を表示せずにプレースホルダーを配置
 animation_placeholder = st.empty()
 
+# Main script
 if st.button("Train Agent"):
     with st.spinner("Training DQN agent... This might take a few minutes."):
         start_time = time.time()
@@ -295,34 +251,7 @@ if st.button("Train Agent"):
         training_time = time.time() - start_time
         st.success(f"Training completed in {training_time:.1f} seconds!")
         
-        # Create final results visualization
-        fig, ax = plt.subplots(3, 1, figsize=(10, 12))
-        
-        # Rewards plot
-        ax[0].plot(rewards_history)
-        ax[0].set_title('Episode Rewards')
-        ax[0].set_xlabel('Episode')
-        ax[0].set_ylabel('Total Reward')
-        ax[0].grid(True)
-        
-        # Epsilon plot
-        ax[1].plot(epsilon_history)
-        ax[1].set_title('Epsilon Decay')
-        ax[1].set_xlabel('Episode')
-        ax[1].set_ylabel('Epsilon')
-        ax[1].grid(True)
-        
-        # Loss plot
-        ax[2].plot(loss_history)
-        ax[2].set_title('Training Loss')
-        ax[2].set_xlabel('Episode')
-        ax[2].set_ylabel('Loss')
-        ax[2].grid(True)
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-        
-        # Test the trained agent
+        # Test the trained agent without showing graphs
         st.subheader("Testing Trained Agent")
         test_agent(policy_net)
 
