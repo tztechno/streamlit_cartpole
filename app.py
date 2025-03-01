@@ -231,10 +231,7 @@ def test_agent(policy_net, num_test_episodes=3):
 
 ## Main script
 st.markdown("""
-This app trains a Deep Q-Network (DQN) agent to solve the CartPole environment 
-from OpenAI Gymnasium. 
-
-In CartPole, a pole is attached to a cart moving along a track. The goal is to 
+A pole is attached to a cart moving along a track. The goal is to 
 balance the pole by applying forces to the cart. The episode ends when the pole is 
 more than 15 degrees from vertical, or the cart moves more than 2.4 units from 
 the center.
