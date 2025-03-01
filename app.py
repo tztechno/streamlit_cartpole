@@ -168,7 +168,6 @@ def train_agent():
     # Return the trained policy network and history data
     return policy_net, rewards_history, epsilon_history, loss_history
 
-
 def visualize_cartpole(policy_net, epsilon=0.05):
     env = gym.make("CartPole-v1", render_mode="rgb_array")
     state, _ = env.reset()
@@ -206,42 +205,35 @@ def visualize_cartpole(policy_net, epsilon=0.05):
         loop=0
     )
     gif_buffer.seek(0)
-
-    # Streamlitで表示
-    st.image(gif_buffer, width=600, caption="CartPole Animation")
-
     
-# Agent testing function with visualization
+    return gif_buffer
+
 def test_agent(policy_net, num_test_episodes=3):
     st.subheader("Agent Performance")
     
-    # Replace the static image with animation
+    # プレースホルダー設置
     animation_placeholder = st.empty()
     
-    # Create environment for testing
+    # テスト用環境作成
     env = gym.make("CartPole-v1")
     
-    # Testing the agent
+    # エージェントのテスト
     test_rewards = []
     test_steps = []
-    best_states = []  # 最長エピソードの状態を保存
-    best_reward = 0
     
     for i in range(num_test_episodes):
         state, _ = env.reset()
         episode_reward = 0
         steps = 0
-        states = [state]  # 状態の履歴
         
-        for t in range(500):  # Max episode length
-            # Use policy
+        for t in range(500):  # 最大エピソード長
+            # ポリシーを使用
             with torch.no_grad():
                 action = policy_net(torch.FloatTensor(state)).argmax().item()
             
-            # Take action
+            # アクション実行
             next_state, reward, terminated, truncated, _ = env.step(action)
             state = next_state
-            states.append(state)  # 状態を記録
             
             episode_reward += reward
             steps += 1
@@ -251,24 +243,15 @@ def test_agent(policy_net, num_test_episodes=3):
         
         test_rewards.append(episode_reward)
         test_steps.append(steps)
-        
-        # 最長エピソードを保存
-        if episode_reward > best_reward:
-            best_reward = episode_reward
-            best_states = states
     
     env.close()
     
-    # 最長エピソードのアニメーションを作成
-    if best_states:
-        anim = visualize_cartpole(best_states)
-        
-        # アニメーションをHTML5ビデオに変換
-        html = anim.to_html5_video()
-        animation_placeholder.markdown(html, unsafe_allow_html=True)
-        plt.close()  # メモリリーク防止のためにfigureをクローズ
+    # アニメーションを生成して表示
+    with st.spinner("Generating animation..."):
+        gif_buffer = visualize_cartpole(policy_net)
+        animation_placeholder.image(gif_buffer, width=600, caption="CartPole Animation")
     
-    # Display test results
+    # テスト結果を表示
     avg_reward = sum(test_rewards) / len(test_rewards)
     avg_steps = sum(test_steps) / len(test_steps)
     
@@ -278,7 +261,7 @@ def test_agent(policy_net, num_test_episodes=3):
     with col2:
         st.metric("Average Steps", f"{avg_steps:.1f}")
     
-    # Show the test results in a table
+    # テスト結果を表にして表示
     results_df = {"Episode": list(range(1, num_test_episodes+1)),
                  "Reward": test_rewards,
                  "Steps": test_steps}
@@ -288,13 +271,17 @@ def test_agent(policy_net, num_test_episodes=3):
     
     return avg_reward
 
-# Main script
+
+
+    
+
+## Main script
 st.markdown("""
 This app trains a Deep Q-Network (DQN) agent to solve the CartPole environment 
 from OpenAI Gymnasium. Adjust the parameters in the sidebar to see how they 
 affect the training process.
 
-## Task Description
+### Task Description
 In CartPole, a pole is attached to a cart moving along a track. The goal is to 
 balance the pole by applying forces to the cart. A reward of +1 is provided for 
 every timestep that the pole remains upright. The episode ends when the pole is 
