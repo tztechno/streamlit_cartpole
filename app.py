@@ -167,6 +167,49 @@ def train_agent():
     # Return the trained policy network and history data
     return policy_net, rewards_history, epsilon_history, loss_history
 
+
+def visualize_cartpole(policy_net, epsilon=0.05):
+    env = gym.make("CartPole-v1", render_mode="rgb_array")
+    state, _ = env.reset()
+    frames = []
+
+    for t in range(500):
+        frame = env.render()  # render_mode="rgb_array" でNumPy配列として取得
+        frames.append(frame)
+
+        if np.random.rand() < epsilon:
+            action = env.action_space.sample()
+        else:
+            with torch.no_grad():
+                action = policy_net(torch.FloatTensor(state)).argmax().item()
+
+        next_state, reward, terminated, truncated, _ = env.step(action)
+        state = next_state
+
+        if terminated or truncated:
+            break
+
+    env.close()
+
+    # PIL Imageに変換
+    images = [Image.fromarray(frame) for frame in frames]
+
+    # メモリ上にGIFを保存
+    gif_buffer = io.BytesIO()
+    images[0].save(
+        gif_buffer,
+        format="GIF",
+        save_all=True,
+        append_images=images[1:],
+        duration=50,  # ミリ秒
+        loop=0
+    )
+    gif_buffer.seek(0)
+    
+    return gif_buffer
+
+
+
 def test_agent(policy_net, num_test_episodes=3):
     st.subheader("Agent Performance")
     
