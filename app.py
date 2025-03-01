@@ -175,7 +175,7 @@ def visualize_cartpole(policy_net, epsilon=0.05):
     frames = []
 
     for t in range(500):
-        frame = env.render()  # mode="rgb_array" で NumPy 配列として取得
+        frame = env.render()  # render_mode="rgb_array" でNumPy配列として取得
         frames.append(frame)
 
         if np.random.rand() < epsilon:
@@ -192,10 +192,10 @@ def visualize_cartpole(policy_net, epsilon=0.05):
 
     env.close()
 
-    # PIL Image に変換
+    # PIL Imageに変換
     images = [Image.fromarray(frame) for frame in frames]
 
-    # メモリ上に GIF を保存
+    # メモリ上にGIFを保存
     gif_buffer = io.BytesIO()
     images[0].save(
         gif_buffer,
@@ -207,14 +207,8 @@ def visualize_cartpole(policy_net, epsilon=0.05):
     )
     gif_buffer.seek(0)
 
-    # Streamlit で GIF を HTML に埋め込む
-    gif_data = gif_buffer.getvalue()
-    gif_base64 = f"data:image/gif;base64,{gif_data.hex()}"
-
-    html_code = f'<img src="{gif_base64}" width="600"/>'
-    st.markdown(html_code, unsafe_allow_html=True)
-
-
+    # Streamlitで表示
+    st.image(gif_buffer, width=600, caption="CartPole Animation")
 
     
 # Agent testing function with visualization
